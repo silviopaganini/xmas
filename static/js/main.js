@@ -1,13 +1,23 @@
+/*
+PIXMAS by @silviopaganini
+# not the best ever code, but it's an experiment, right? =) 
+hope you enjoy!
+
+#threejs #oimojs
+
+*/
+
 (function(){
 
     var scene, camera, renderer;
     var composer, clock, world, postprocessing = {};
     var ground;
     var hemiLight, dirLight;
-    var theta, phi;
+    var theta = 0;
+    var phi = 0;
     var frame;
 
-    var size           = 4;
+    var size           = window.isMobile ? 10 : 4;
     var meshs          = [];
     var bodys          = [];
     var grounds        = [];
@@ -31,18 +41,18 @@
     var mousePos = new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2);
 
     var icons = ["bells-icon.png",
-"candy-cane-icon.png",
-"christmas_ice_man_icon.png",
-"christmas_stockings_icon.png",
-"christmas-tree-icon.png",
-"gift-icon.png",
-"gingerbread.png",
-"santa-hat-icon.png",
-"santa-shades.png",
-"santa.png",
-"santa2.png",
-"snowflake-icon.png",
-"tree.png"]
+                "candy-cane-icon.png",
+                "christmas_ice_man_icon.png",
+                "christmas_stockings_icon.png",
+                "christmas-tree-icon.png",
+                "gift-icon.png",
+                "gingerbread.png",
+                "santa-hat-icon.png",
+                "santa-shades.png",
+                "santa.png",
+                "santa2.png",
+                "snowflake-icon.png",
+                "tree.png"]
 
     icons = shuffle(icons);
 
@@ -72,8 +82,6 @@
     {
         renderer = new THREE.WebGLRenderer({precision: "mediump", antialias: false, alpha: false});
         renderer.autoClear = false;
-        renderer.shadowMapEnabled = true;
-        renderer.shadowMapType = THREE.PCFSoftShadowMap;
         document.body.appendChild( renderer.domElement );
         renderer.setSize( window.innerWidth, window.innerHeight);
 
@@ -88,12 +96,23 @@
         var width = window.innerWidth;
         var height = window.innerHeight;
 
-        var passes = [
-            ["bloom", new THREE.BloomPass( .1 ), true],
-            // ["glitch", new THREE.GlitchPass(100, 50), true],
-            ["film", new THREE.FilmPass( 5., 3., 1024, false ), false],
-            ['vignette', new THREE.ShaderPass( THREE.VignetteShader ), true]
-        ]
+        if(!window.isMobile)
+        {
+            renderer.shadowMapEnabled = true;
+            renderer.shadowMapType = THREE.PCFSoftShadowMap;
+
+            var passes = [
+                ["bloom", new THREE.BloomPass( .1 ), true],
+                // ["glitch", new THREE.GlitchPass(100, 50), true],
+                ["film", new THREE.FilmPass( 5., 3., 1024, false ), false],
+                ['vignette', new THREE.ShaderPass( THREE.VignetteShader ), true]
+            ]
+
+        } else {
+            var passes = [
+                ['vignette', new THREE.ShaderPass( THREE.VignetteShader ), true]
+            ]
+        }
 
         for (var i = 0; i < passes.length; i++) {
             postprocessing[passes[i][0]] = passes[i][1];
@@ -106,10 +125,8 @@
         for (var i = 0; i < passes.length; i++) {
             composer.addPass(passes[i][1]);
         };
-    }
 
-    function renderPass() {
-        postprocessing.composer.render(1);
+            
     }
 
     function loadImageToPixel(imgURL, addObject)
@@ -129,11 +146,11 @@
             {
                 buildScene();
                 setTimerClick = setInterval(function(){
+                    $('#clickHeader').text(window.isMobile ? "Tap!" : "Click!");
                     $('#clickHeader').textillate({ autoStart: true, in: { effect: 'bounceIn' }, out: { effect: 'bounceOut' } });    
                     $('#heading-click').css('opacity', 1)
                 }, 5000);
                 
-                addControls();
             } else {
                 build3DPixelImage(true);
             }
@@ -152,13 +169,13 @@
         build3DPixelImage();
         setLights();
         setSky();
-        addBackgroundParticles();
-        addControls();
+        if(!window.isMobile) addBackgroundParticles();
 
         clock = new THREE.Clock( true );
 
         sound.pos(0);
         sound.play().fadeIn(0.3, 2000);
+        setTimeout(addControls, 2000);
         update();
     };
 
@@ -248,21 +265,21 @@
         // dirLight3.rotation.x = 45 * ToRad;
         scene.add( dirLight3 );
 
-        // amb = new THREE.AmbientLight( 0x404040, .5 );
-        // scene.add(amb);
-
-        // dirLight.shadowMapWidth = 1000;
-        // dirLight.shadowMapHeight = 1000;
-        
-
         scene.fog = new THREE.FogExp2( 0xba804d, .001 );
     }
 
     function addControls()
     {
-        renderer.domElement.addEventListener( 'mouseup', onMouseUp );
-        document.addEventListener( 'mousemove', onMouseMove );
-        window.addEventListener("resize", onWindowResize);
+        if(window.isMobile)
+        {
+            $(window).bind( 'touchend', onMouseUp );
+            gyro.startTracking(gyroMove);
+        } else 
+        {
+            $(window).bind("mouseup", onMouseUp );
+            document.addEventListener( 'mousemove', onMouseMove );
+            window.addEventListener("resize", onWindowResize);
+        }
     }
 
     function initOimoPhysics(){
@@ -335,6 +352,8 @@
         theta = ( event.clientX - window.innerWidth * 0.5 ) / (window.innerWidth*.5)
         phi   = ( window.innerHeight * 0.5 - event.clientY ) / (window.innerHeight*.5) 
     }
+
+    
 
     function onMouseUp(e)
     {
@@ -455,6 +474,12 @@
 
     function animateFilmParams(to, time, callback, delay)
     {
+        if(window.isMobile){
+            if(callback){
+                callback();
+            } return null;
+        };
+
         var params = {
             a : postprocessing['film'].uniforms[ "nIntensity" ].value, 
             b : postprocessing['film'].uniforms[ "sIntensity" ].value,
@@ -469,6 +494,8 @@
 
     function animateVignette(to, time, callback, delay, ease)
     {
+        // if(window.isMobile) if(callback){callback();} return null;
+
         var params = {a: postprocessing['vignette'].uniforms[ "darkness" ].value, b: postprocessing['vignette'].uniforms[ "offset" ].value};
         TweenMax.to(params, time, { a: to.a, b: to.b, delay: delay, ease: ease, onUpdate: function(){
             postprocessing['vignette'].uniforms[ "darkness" ].value = params.a;
@@ -500,6 +527,12 @@
         }
     }
 
+    function gyroMove(e)
+    {
+        theta = -e.gamma * 5
+        phi   = -e.alpha * .7
+    }
+
     function update() {
 
         requestAnimationFrame(update);
@@ -513,13 +546,25 @@
 
         if(!animCamera)
         {
-            TweenMax.to(camera.position, .8, {
-                x : ((window.innerWidth * theta - window.innerWidth / 2) * .2), 
-                y: -150 + ((window.innerHeight * phi - window.innerHeight / 2) * .1), 
-                ease: "easeOutQuad", onUpdate: function(){
-                    camera.lookAt(l);
-                }
-            });
+            if(window.isMobile)
+            {
+                TweenMax.to(camera.position, .3, {
+                    x : theta, y: -150, ease: "linear", onUpdate: function(){
+                        camera.lookAt(l);
+                    }
+                });
+
+            } else {
+
+                TweenMax.to(camera.position, .8, {
+                    x : ((window.innerWidth * theta - window.innerWidth / 2) * .2), 
+                    y: -150 + ((window.innerHeight * phi - window.innerHeight / 2) * .1), 
+                    ease: "easeOutQuad", onUpdate: function(){
+                        camera.lookAt(l);
+                    }
+                });
+
+            }
 
         } else {
             camera.lookAt(l);
@@ -559,15 +604,18 @@
             cameraTop = false;
         }
 
-        particleSystem.rotation.x -= .001;
+        if(!window.isMobile) particleSystem.rotation.x -= .001;
         if(state == 2 || state == 4) reverseUpdate()
         render();
 
     };
 
     function render() {
-        //renderer.render( scene, camera );
-        renderPass();
+        // if(window.isMobile){
+            // renderer.render( scene, camera );
+        // } else {
+            postprocessing.composer.render(1);
+        // }
         stats.update();
     }
 
